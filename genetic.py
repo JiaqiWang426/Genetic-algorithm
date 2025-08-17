@@ -217,9 +217,6 @@ def main(Tests, Scores, Durations,
                 worksheet['D' + str(remove_index)] = Durations[test_index]
                 worksheet['E' + str(remove_index)] = str(sum(best.coverage & Tests_matrix[test_index]) / sum(Tests_matrix[test_index]) * 100) + '%' 
                 #从F列开始输出哪些tests能替代removed
-                def bfs(target, selected_indices, dist = {}):
-                     #找到selected tests (best.x)中最少的能覆盖removed test的方案
-                    pass
 
                 def array_to_mask(a: np.ndarray) -> int:
                     a = np.asarray(a, dtype = bool)
@@ -229,9 +226,57 @@ def main(Tests, Scores, Durations,
                             mask |= (1 << i)
                     return mask
                 
+                def prune_masks(masks: dict) -> dict: #如果mi被mj包含，怎么删掉mi以mj作为状态
+                    items = list(masks.items())
+                    drop = set()
+                    for i, mi in items:
+                        if mi == 0: 
+                            drop.add(i)
+                            continue
+                        for j, mj in items:
+                            if i== j or j in drop: 
+                                continue
+                            if (mi | mj) == mj:
+                                drop.add(i)
+                                break
+                    return {i: m for i, m in masks.items() if i not in drop}
+                
+                def bfs_min_cover(target, masks: dict[int, int]):
+                     #给定所有掩码masks的情况下，通过BFS(breadth first search)找到最少个数覆盖target_mask的测试集合
+                     # 返回（picks，k）
+                    start_state = 0
+                    dist = {start_state: 0}
+                    parent = {}
+                    q = deque{[start_state]}
+
+                    while q:
+                        s = q.popleft()
+                        if s == target_mask:
+                            break
+                        for ti, m in masks.items():
+                            ns = s | m
+                            if ns not in dist:
+                                dist[ns] = dist[s] + 1
+                                parents[ns] = (s, ti)
+
+                    picks = []
+                    s = target_mask
+                    while s != start_state:
+                        ps, ti = parent[s]
+                        picks.append(ti)
+                    picks.reverse()
+                    return picks, dist[target_mask]
+                
                 target_mask = array_to_mask(best.coverage & Tests_matrix[test_index])
-                Selected_indices = np.flatnonzero(best.x)
-                masks = {i: array_to_mask(Tests_matrix[i] & Tests_matrix[test_index]) for i in Selected_indices}
+                Selected_indices = np.flatnonzero(best.x) #selected indices就是best这个方案所选择的tests的索引
+                masks = {i: array_to_mask(Tests_matrix[Selected_indices[i]] & Tests_matrix[test_index])
+                     for i in range(len(Selected_indices))}
+                masks = prune_masks(masks)
+                #masks是被best这个方案选中的tests（Tests_matrix[i]) 与 被删除的test  (Tests_matrix[test_index]) 所产生的交集的掩码
+                picks, k = bfs_min_cover(target_mask, masks)
+                if picks is None:
+                    pass
+
                 remove_index += 1
         
         #——第二部分：输出覆盖了哪些requirements，每个重复了几次，以及在哪些tests里面重复了
