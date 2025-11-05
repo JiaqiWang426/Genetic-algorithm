@@ -1,0 +1,1 @@
+The algorithm treats the sequence of tests as a chromosome and simulates natural selection to screen for high-fitness candidates. It can identify a test sequence that keeps coverage high while significantly reducing total duration. In addition, the program automatically reads engineers’ Excel sheets and generates an Excel report for analysis.
